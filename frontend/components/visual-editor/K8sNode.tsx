@@ -96,10 +96,11 @@ export default function K8sNode({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onEditYaml?.({ id, type, name, x, y, config });
+              onEditYaml?.({ id, type, name, x, y, config, yaml });
             }}
-            className="text-xs px-2 py-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded transition-colors"
+            className="text-xs px-2 py-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded transition-colors z-[99999]"
             title="编辑 YAML"
+            style={{ zIndex: 99999 }}
           >
             📝
           </button>

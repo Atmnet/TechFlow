@@ -574,8 +574,14 @@ export default function VisualEditor({
 
       {/* YAML 导入对话框 */}
       {showImportDialog && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 w-[600px] max-h-[80vh] flex flex-col">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+          style={{ zIndex: 99998 }}
+        >
+          <div 
+            className="bg-gray-800 rounded-xl p-6 w-[600px] max-h-[80vh] flex flex-col relative"
+            style={{ zIndex: 99999 }}
+          >
             <h3 className="text-white text-xl font-bold mb-4">📥 导入 YAML（增量添加）</h3>
             <p className="text-gray-400 text-sm mb-4">
               粘贴 K8s YAML 配置，自动解析并添加到画布（不会覆盖已有资源）

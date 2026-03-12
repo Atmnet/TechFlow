@@ -24,8 +24,14 @@ export default function ResourceConfigModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl p-6 w-[800px] max-h-[90vh] flex flex-col">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999]"
+      style={{ zIndex: 99999 }}
+    >
+      <div 
+        className="bg-gray-800 rounded-xl p-6 w-[800px] max-h-[90vh] flex flex-col relative"
+        style={{ zIndex: 100000 }}
+      >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-white text-xl font-bold">
             📝 编辑资源配置 - {node.name}
