@@ -1,0 +1,300 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "id": "title",
+      "type": "text",
+      "x": 100,
+      "y": 30,
+      "width": 400,
+      "height": 40,
+      "text": "TechFlow 系统架构图",
+      "fontSize": 24,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "transparent"
+    },
+    {
+      "id": "user_layer",
+      "type": "rectangle",
+      "x": 50,
+      "y": 100,
+      "width": 700,
+      "height": 80,
+      "strokeColor": "#4a90d9",
+      "backgroundColor": "#e3f2fd",
+      "strokeWidth": 2,
+      "label": {
+        "text": "用户层",
+        "fontSize": 16
+      }
+    },
+    {
+      "id": "web_client",
+      "type": "rectangle",
+      "x": 80,
+      "y": 120,
+      "width": 120,
+      "height": 40,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "Web 端",
+        "fontSize": 14
+      }
+    },
+    {
+      "id": "mobile_client",
+      "type": "rectangle",
+      "x": 240,
+      "y": 120,
+      "width": 120,
+      "height": 40,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "移动端",
+        "fontSize": 14
+      }
+    },
+    {
+      "id": "api_client",
+      "type": "rectangle",
+      "x": 400,
+      "y": 120,
+      "width": 120,
+      "height": 40,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "API 调用",
+        "fontSize": 14
+      }
+    },
+    {
+      "id": "api_gateway",
+      "type": "rectangle",
+      "x": 50,
+      "y": 220,
+      "width": 700,
+      "height": 100,
+      "strokeColor": "#27ae60",
+      "backgroundColor": "#e8f8f0",
+      "strokeWidth": 2,
+      "label": {
+        "text": "API 网关层 (Fastify + Node.js 20)",
+        "fontSize": 16
+      }
+    },
+    {
+      "id": "auth_middleware",
+      "type": "rectangle",
+      "x": 80,
+      "y": 250,
+      "width": 150,
+      "height": 50,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "认证中间件\n(JWT)",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "rate_limit",
+      "type": "rectangle",
+      "x": 260,
+      "y": 250,
+      "width": 150,
+      "height": 50,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "限流中间件\n(100 req/min)",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "log_middleware",
+      "type": "rectangle",
+      "x": 440,
+      "y": 250,
+      "width": 150,
+      "height": 50,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "日志中间件\n(Pino)",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "service_layer",
+      "type": "rectangle",
+      "x": 50,
+      "y": 360,
+      "width": 700,
+      "height": 100,
+      "strokeColor": "#e67e22",
+      "backgroundColor": "#fef5e7",
+      "strokeWidth": 2,
+      "label": {
+        "text": "业务服务层",
+        "fontSize": 16
+      }
+    },
+    {
+      "id": "sandbox_service",
+      "type": "rectangle",
+      "x": 80,
+      "y": 390,
+      "width": 180,
+      "height": 50,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "沙盒服务\n(WebContainers)",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "validation_service",
+      "type": "rectangle",
+      "x": 290,
+      "y": 390,
+      "width": 180,
+      "height": 50,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "验证服务\n(YAML + K8s)",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "user_service",
+      "type": "rectangle",
+      "x": 500,
+      "y": 390,
+      "width": 180,
+      "height": 50,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "用户服务\n(Auth + Profile)",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "data_layer",
+      "type": "rectangle",
+      "x": 50,
+      "y": 500,
+      "width": 700,
+      "height": 100,
+      "strokeColor": "#9b59b6",
+      "backgroundColor": "#f5eef8",
+      "strokeWidth": 2,
+      "label": {
+        "text": "数据层",
+        "fontSize": 16
+      }
+    },
+    {
+      "id": "postgres",
+      "type": "rectangle",
+      "x": 80,
+      "y": 530,
+      "width": 180,
+      "height": 50,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "PostgreSQL 15\n(持久化)",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "redis",
+      "type": "rectangle",
+      "x": 290,
+      "y": 530,
+      "width": 180,
+      "height": 50,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "Redis 7\n(缓存/会话)",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "filesystem",
+      "type": "rectangle",
+      "x": 500,
+      "y": 530,
+      "width": 180,
+      "height": 50,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "文件系统\n(临时存储)",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "arrow1",
+      "type": "arrow",
+      "x": 400,
+      "y": 180,
+      "endX": 400,
+      "endY": 220,
+      "strokeColor": "#1e1e1e",
+      "strokeWidth": 2,
+      "label": {
+        "text": "HTTPS",
+        "fontSize": 12
+      }
+    },
+    {
+      "id": "arrow2",
+      "type": "arrow",
+      "x": 400,
+      "y": 320,
+      "endX": 400,
+      "endY": 360,
+      "strokeColor": "#1e1e1e",
+      "strokeWidth": 2
+    },
+    {
+      "id": "arrow3",
+      "type": "arrow",
+      "x": 400,
+      "y": 460,
+      "endX": 400,
+      "endY": 500,
+      "strokeColor": "#1e1e1e",
+      "strokeWidth": 2
+    },
+    {
+      "id": "legend",
+      "type": "text",
+      "x": 50,
+      "y": 640,
+      "width": 300,
+      "height": 80,
+      "text": "图例:\n🔵 用户层\n🟢 API 网关层\n🟠 业务服务层\n🟣 数据层",
+      "fontSize": 12,
+      "textAlign": "left"
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": 20,
+    "currentItemStrokeColor": "#1e1e1e",
+    "currentItemBackgroundColor": "transparent"
+  }
+}
