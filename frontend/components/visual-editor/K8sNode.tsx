@@ -5,11 +5,12 @@ import { useState } from "react";
 
 export interface K8sNodeProps {
   id: string;
-  type: "pod" | "service" | "deployment" | "configmap" | "secret" | "database";
+  type: "pod" | "service" | "deployment" | "configmap" | "secret" | "database" | "ingress";
   name: string;
   x: number;
   y: number;
   config?: Record<string, any>;
+  yaml?: string;
   onUpdate?: (id: string, x: number, y: number, config?: any) => void;
   onConnect?: (fromId: string, toId: string) => void;
   isSelected?: boolean;
@@ -17,6 +18,7 @@ export interface K8sNodeProps {
   onStartConnect?: (nodeId: string) => void;
   onDragStart?: (id: string) => void;
   onDragEnd?: () => void;
+  onEditYaml?: (node: K8sNodeProps) => void;
 }
 
 const nodeConfig = {
@@ -42,6 +44,7 @@ export default function K8sNode({
   onStartConnect,
   onDragStart,
   onDragEnd,
+  onEditYaml,
 }: K8sNodeProps) {
   const [isDragging, setIsDragging] = useState(false);
   const configStyle = nodeConfig[type];
@@ -85,9 +88,21 @@ export default function K8sNode({
         }`}
       >
         {/* 节点头部 */}
-        <div className="flex items-center px-3 py-2 border-b border-white border-opacity-20">
-          <span className="text-xl mr-2 flex-shrink-0">{configStyle.icon}</span>
-          <span className="text-white font-bold text-xs flex-shrink-0">{configStyle.label}</span>
+        <div className="flex items-center justify-between px-3 py-2 border-b border-white border-opacity-20">
+          <div className="flex items-center space-x-2">
+            <span className="text-xl flex-shrink-0">{configStyle.icon}</span>
+            <span className="text-white font-bold text-xs flex-shrink-0">{configStyle.label}</span>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditYaml?.({ id, type, name, x, y, config });
+            }}
+            className="text-xs px-2 py-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded transition-colors"
+            title="编辑 YAML"
+          >
+            📝
+          </button>
         </div>
 
         {/* 节点内容 */}
@@ -107,6 +122,9 @@ export default function K8sNode({
               )}
               {config.port && (
                 <div>🔌 Port: {config.port}</div>
+              )}
+              {config.selector && (
+                <div>🎯 Selector: {Object.keys(config.selector).join(", ")}</div>
               )}
             </div>
           )}
@@ -130,7 +148,6 @@ export default function K8sNode({
             title="点击完成连接"
             onClick={(e) => {
               e.stopPropagation();
-              onConnect?.(id, id);
             }}
           />
         </div>

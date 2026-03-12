@@ -4,20 +4,19 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import K8sNode, { K8sNodeProps } from "./K8sNode";
 import ConnectionLine, { Connection } from "./ConnectionLine";
+import ResourceConfigModal from "./ResourceConfigModal";
 import * as yaml from "js-yaml";
 
 export interface VisualEditorProps {
   initialNodes?: K8sNodeProps[];
   initialConnections?: Connection[];
   onYamlChange?: (yaml: string) => void;
-  onImportYaml?: (yamlText: string) => void;
 }
 
 export default function VisualEditor({
   initialNodes = [],
   initialConnections = [],
   onYamlChange,
-  onImportYaml,
 }: VisualEditorProps) {
   const [nodes, setNodes] = useState<K8sNodeProps[]>(initialNodes);
   const [connections, setConnections] = useState<Connection[]>(initialConnections);
@@ -25,99 +24,120 @@ export default function VisualEditor({
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importYamlText, setImportYamlText] = useState("");
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [editingNode, setEditingNode] = useState<K8sNodeProps | null>(null);
+  const [individualYaml, setIndividualYaml] = useState("");
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  // 生成 YAML
-  const generateYaml = useCallback(() => {
-    const yamlDocs = nodes.map((node) => {
-      const kind = node.type.charAt(0).toUpperCase() + node.type.slice(1);
-      const baseConfig: any = {
-        apiVersion: "v1",
-        kind: kind,
-        metadata: {
-          name: node.name,
-          labels: {
-            app: node.name,
-          },
-        },
-      };
+  // 分析 YAML 中的资源关联
+  const analyzeConnections = useCallback((newNodes: K8sNodeProps[], existingNodes: K8sNodeProps[]) => {
+    const newConnections: Connection[] = [];
+    const allNodes = [...existingNodes, ...newNodes];
 
-      if (node.type === "pod" || node.type === "deployment") {
-        if (node.type === "deployment") {
-          baseConfig.apiVersion = "apps/v1";
-          baseConfig.spec = {
-            replicas: node.config?.replicas || 1,
-            selector: {
-              matchLabels: {
-                app: node.name,
-              },
-            },
-            template: {
-              metadata: {
-                labels: {
-                  app: node.name,
-                },
-              },
-              spec: {
-                containers: [
-                  {
-                    name: node.name,
-                    image: node.config?.image || "nginx:latest",
-                    ports: node.config?.port
-                      ? [{ containerPort: node.config.port }]
-                      : [],
-                  },
-                ],
-              },
-            },
-          };
-        } else {
-          baseConfig.spec = {
-            containers: [
-              {
-                name: node.name,
-                image: node.config?.image || "nginx:latest",
-                ports: node.config?.port
-                  ? [{ containerPort: node.config.port }]
-                  : [],
-              },
-            ],
-          };
-        }
-      } else if (node.type === "service") {
-        baseConfig.spec = {
-          selector: {
-            app: node.name,
-          },
-          ports: [
-            {
-              port: node.config?.port || 80,
-              targetPort: node.config?.targetPort || node.config?.port || 80,
-            },
-          ],
-          type: "ClusterIP",
-        };
+    newNodes.forEach((newNode) => {
+      // Service 关联 Pod/Deployment
+      if (newNode.type === "service" && newNode.config?.selector) {
+        allNodes.forEach((node) => {
+          if ((node.type === "pod" || node.type === "deployment") && 
+              node.config?.labels) {
+            // 检查 label 是否匹配
+            const selector = newNode.config.selector;
+            const labels = node.config.labels;
+            const isMatch = Object.entries(selector).every(
+              ([key, value]) => labels[key] === value
+            );
+            
+            if (isMatch) {
+              newConnections.push({
+                id: `conn-${node.id}-${newNode.id}`,
+                fromId: node.id,
+                toId: newNode.id,
+                type: "tcp",
+              });
+            }
+          }
+        });
       }
 
-      return baseConfig;
+      // Ingress 关联 Service
+      if (newNode.type === "ingress" && newNode.config?.rules) {
+        allNodes.forEach((node) => {
+          if (node.type === "service") {
+            const rules = newNode.config.rules;
+            const serviceName = rules[0]?.backend?.service?.name || rules[0]?.backend?.serviceName;
+            
+            if (serviceName && node.name === serviceName) {
+              newConnections.push({
+                id: `conn-${node.id}-${newNode.id}`,
+                fromId: node.id,
+                toId: newNode.id,
+                type: "http",
+              });
+            }
+          }
+        });
+      }
+
+      // Deployment 关联 Pod（通过 template labels）
+      if (newNode.type === "deployment" && newNode.config?.template?.metadata?.labels) {
+        allNodes.forEach((node) => {
+          if (node.type === "pod" && node.config?.labels) {
+            const templateLabels = newNode.config.template.metadata.labels;
+            const podLabels = node.config.labels;
+            const isMatch = Object.entries(templateLabels).every(
+              ([key, value]) => podLabels[key] === value
+            );
+            
+            if (isMatch) {
+              newConnections.push({
+                id: `conn-${newNode.id}-${node.id}`,
+                fromId: newNode.id,
+                toId: node.id,
+                type: "tcp",
+              });
+            }
+          }
+        });
+      }
+
+      // ConfigMap/Secret 关联 Pod/Deployment
+      if ((newNode.type === "configmap" || newNode.type === "secret") && newNode.config?.data) {
+        allNodes.forEach((node) => {
+          if (node.type === "pod" || node.type === "deployment") {
+            const configMapName = newNode.name;
+            const envFrom = node.config?.containers?.[0]?.envFrom || [];
+            const env = node.config?.containers?.[0]?.env || [];
+            
+            const isReferenced = envFrom.some((ref: any) => 
+              ref.configMapRef?.name === configMapName || ref.secretRef?.name === configMapName
+            ) || env.some((e: any) => 
+              e.valueFrom?.configMapKeyRef?.name === configMapName || 
+              e.valueFrom?.secretKeyRef?.name === configMapName
+            );
+            
+            if (isReferenced) {
+              newConnections.push({
+                id: `conn-${newNode.id}-${node.id}`,
+                fromId: newNode.id,
+                toId: node.id,
+                type: "config",
+              });
+            }
+          }
+        });
+      }
     });
 
-    const yamlStr = yamlDocs
-      .map((doc) => yaml.dump(doc, { indent: 2 }))
-      .join("---\n");
+    return newConnections;
+  }, []);
 
-    onYamlChange?.(yamlStr);
-    return yamlStr;
-  }, [nodes, onYamlChange]);
-
-  // 从 YAML 导入
+  // 从 YAML 导入（增量添加，不覆盖）
   const importFromYaml = (yamlText: string) => {
     try {
       const docs = yaml.loadAll(yamlText) as any[];
       const newNodes: K8sNodeProps[] = [];
-      const newConnections: Connection[] = [];
       
-      let xOffset = 100;
+      let xOffset = 100 + nodes.length * 50;
       let yOffset = 100;
       
       docs.forEach((doc, index) => {
@@ -126,53 +146,68 @@ export default function VisualEditor({
         const kind = doc.kind.toLowerCase();
         const type = kind as K8sNodeProps["type"];
         
+        // 提取配置
         const config: any = {};
         if (doc.spec) {
           if (doc.spec.replicas !== undefined) {
             config.replicas = doc.spec.replicas;
           }
+          if (doc.spec.selector) {
+            config.selector = doc.spec.selector;
+          }
+          if (doc.spec.template) {
+            config.template = doc.spec.template;
+          }
           if (doc.spec.template?.spec?.containers?.[0]) {
             config.image = doc.spec.template.spec.containers[0].image;
             config.port = doc.spec.template.spec.containers[0].ports?.[0]?.containerPort;
+            config.containers = doc.spec.template.spec.containers;
           } else if (doc.spec.containers?.[0]) {
             config.image = doc.spec.containers[0].image;
             config.port = doc.spec.containers[0].ports?.[0]?.containerPort;
+            config.containers = doc.spec.containers;
           }
           if (doc.spec.ports?.[0]) {
             config.port = doc.spec.ports[0].port;
             config.targetPort = doc.spec.ports[0].targetPort;
           }
+          if (doc.spec.rules) {
+            config.rules = doc.spec.rules;
+          }
+        }
+        if (doc.data) {
+          config.data = doc.data;
+        }
+
+        // 提取 labels
+        if (doc.metadata.labels) {
+          config.labels = doc.metadata.labels;
         }
         
         const node: K8sNodeProps = {
           id: `node-${Date.now()}-${index}`,
-          type: ["pod", "service", "deployment", "configmap", "secret", "database"].includes(type) 
+          type: ["pod", "service", "deployment", "configmap", "secret", "database", "ingress"].includes(type) 
             ? type as any 
             : "pod",
           name: doc.metadata.name,
           x: xOffset + (index % 5) * 250,
           y: yOffset + Math.floor(index / 5) * 180,
           config,
+          yaml: yaml.dump(doc, { indent: 2 }), // 保存独立 YAML
           onUpdate: handleNodeUpdate,
           onSelect: handleNodeSelect,
           onStartConnect: startConnection,
+          onEditYaml: handleEditYaml,
         };
         newNodes.push(node);
-        
-        if (doc.spec?.selector && index > 0) {
-          const prevNode = newNodes[newNodes.length - 2];
-          if (prevNode) {
-            newConnections.push({
-              id: `conn-${prevNode.id}-${node.id}`,
-              fromId: prevNode.id,
-              toId: node.id,
-            });
-          }
-        }
       });
       
-      setNodes(newNodes);
-      setConnections(newConnections);
+      // 分析并自动创建连接
+      const newConnections = analyzeConnections(newNodes, nodes);
+      
+      // 增量添加（不覆盖已有节点）
+      setNodes((prev) => [...prev, ...newNodes]);
+      setConnections((prev) => [...prev, ...newConnections]);
       setShowImportDialog(false);
       setImportYamlText("");
     } catch (error: any) {
@@ -216,6 +251,125 @@ export default function VisualEditor({
     setIsConnecting(nodeId);
   };
 
+  // 编辑 YAML
+  const handleEditYaml = (node: K8sNodeProps) => {
+    setEditingNode(node);
+    setIndividualYaml(node.yaml || generateNodeYaml(node));
+    setShowConfigModal(true);
+  };
+
+  // 保存 YAML 修改
+  const handleSaveYaml = (yamlText: string) => {
+    if (!editingNode) return;
+    
+    try {
+      const parsed = yaml.load(yamlText) as any;
+      
+      // 更新节点配置
+      const updatedNode: K8sNodeProps = {
+        ...editingNode,
+        yaml: yamlText,
+        config: {
+          ...editingNode.config,
+          replicas: parsed.spec?.replicas,
+          image: parsed.spec?.template?.spec?.containers?.[0]?.image || 
+                 parsed.spec?.containers?.[0]?.image,
+          port: parsed.spec?.template?.spec?.containers?.[0]?.ports?.[0]?.containerPort ||
+                parsed.spec?.ports?.[0]?.port,
+          selector: parsed.spec?.selector,
+          labels: parsed.metadata?.labels,
+        },
+      };
+      
+      setNodes((prev) =>
+        prev.map((n) => (n.id === editingNode.id ? updatedNode : n))
+      );
+      
+      // 重新分析连接
+      const updatedConnections = analyzeConnections([updatedNode], nodes.filter(n => n.id !== updatedNode.id));
+      
+      // 更新连接
+      setConnections((prev) => {
+        const filtered = prev.filter(c => c.fromId !== editingNode.id && c.toId !== editingNode.id);
+        return [...filtered, ...updatedConnections];
+      });
+      
+      setShowConfigModal(false);
+      setEditingNode(null);
+    } catch (error: any) {
+      alert(`YAML 格式错误：${error.message}`);
+    }
+  };
+
+  // 生成节点 YAML
+  const generateNodeYaml = (node: K8sNodeProps) => {
+    const kind = node.type.charAt(0).toUpperCase() + node.type.slice(1);
+    const doc: any = {
+      apiVersion: "v1",
+      kind: kind,
+      metadata: {
+        name: node.name,
+        labels: node.config?.labels || { app: node.name },
+      },
+    };
+
+    if (node.type === "pod" || node.type === "deployment") {
+      if (node.type === "deployment") {
+        doc.apiVersion = "apps/v1";
+        doc.spec = {
+          replicas: node.config?.replicas || 1,
+          selector: {
+            matchLabels: { app: node.name },
+          },
+          template: {
+            metadata: { labels: { app: node.name } },
+            spec: {
+              containers: [
+                {
+                  name: node.name,
+                  image: node.config?.image || "nginx:latest",
+                  ports: node.config?.port ? [{ containerPort: node.config.port }] : [],
+                },
+              ],
+            },
+          },
+        };
+      } else {
+        doc.spec = {
+          containers: [
+            {
+              name: node.name,
+              image: node.config?.image || "nginx:latest",
+              ports: node.config?.port ? [{ containerPort: node.config.port }] : [],
+            },
+          ],
+        };
+      }
+    } else if (node.type === "service") {
+      doc.spec = {
+        selector: { app: node.name },
+        ports: [{ port: node.config?.port || 80, targetPort: node.config?.targetPort || 80 }],
+        type: "ClusterIP",
+      };
+    }
+
+    return yaml.dump(doc, { indent: 2 });
+  };
+
+  // 导出 YAML
+  const generateYaml = useCallback(() => {
+    const yamlDocs = nodes.map((node) => {
+      if (node.yaml) {
+        return node.yaml;
+      }
+      return generateNodeYaml(node);
+    });
+
+    const yamlStr = yamlDocs.join("---\n");
+    onYamlChange?.(yamlStr);
+    return yamlStr;
+  }, [nodes, onYamlChange]);
+
   // 添加节点
   const addNode = (type: K8sNodeProps["type"]) => {
     const newNode: K8sNodeProps = {
@@ -228,10 +382,25 @@ export default function VisualEditor({
         image: "nginx:latest",
         port: 80,
         replicas: 1,
+        labels: { app: `${type}-${nodes.length + 1}` },
       },
+      yaml: generateNodeYaml({
+        id: `node-${Date.now()}`,
+        type,
+        name: `${type}-${nodes.length + 1}`,
+        x: 0,
+        y: 0,
+        config: {
+          image: "nginx:latest",
+          port: 80,
+          replicas: 1,
+          labels: { app: `${type}-${nodes.length + 1}` },
+        },
+      }),
       onUpdate: handleNodeUpdate,
       onSelect: handleNodeSelect,
       onStartConnect: startConnection,
+      onEditYaml: handleEditYaml,
     };
     setNodes((prev) => [...prev, newNode]);
   };
@@ -270,7 +439,7 @@ export default function VisualEditor({
         <h3 className="text-white font-bold mb-4">🧩 资源类型</h3>
         
         <div className="space-y-2 mb-4">
-          {(["pod", "service", "deployment", "configmap", "secret", "database"] as const).map(
+          {(["pod", "service", "deployment", "configmap", "secret", "database", "ingress"] as const).map(
             (type) => (
               <button
                 key={type}
@@ -285,6 +454,7 @@ export default function VisualEditor({
                     configmap: "📄",
                     secret: "🔐",
                     database: "🗄️",
+                    ingress: "🌐",
                   }[type]}
                 </span>
                 <span className="capitalize">{type}</span>
@@ -299,7 +469,7 @@ export default function VisualEditor({
             className="w-full px-4 py-3 bg-green-700 hover:bg-green-600 text-white rounded-lg transition-colors text-left flex items-center"
           >
             <span className="text-xl mr-2">📥</span>
-            <span>导入 YAML</span>
+            <span>导入 YAML（增量）</span>
           </button>
           
           <button
@@ -383,6 +553,7 @@ export default function VisualEditor({
                 onUpdate={handleNodeUpdate}
                 onSelect={handleNodeSelect}
                 onStartConnect={startConnection}
+                onEditYaml={handleEditYaml}
                 isSelected={selectedNodeId === node.id}
               />
             ))}
@@ -405,9 +576,9 @@ export default function VisualEditor({
       {showImportDialog && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-800 rounded-xl p-6 w-[600px] max-h-[80vh] flex flex-col">
-            <h3 className="text-white text-xl font-bold mb-4">📥 导入 YAML</h3>
+            <h3 className="text-white text-xl font-bold mb-4">📥 导入 YAML（增量添加）</h3>
             <p className="text-gray-400 text-sm mb-4">
-              粘贴 K8s YAML 配置，自动解析为可视化资源
+              粘贴 K8s YAML 配置，自动解析并添加到画布（不会覆盖已有资源）
             </p>
             <textarea
               value={importYamlText}
@@ -431,6 +602,19 @@ export default function VisualEditor({
             </div>
           </div>
         </div>
+      )}
+
+      {/* 资源配置弹窗 */}
+      {showConfigModal && editingNode && (
+        <ResourceConfigModal
+          node={editingNode}
+          yaml={individualYaml}
+          onSave={handleSaveYaml}
+          onClose={() => {
+            setShowConfigModal(false);
+            setEditingNode(null);
+          }}
+        />
       )}
     </div>
   );

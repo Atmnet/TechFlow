@@ -6,7 +6,7 @@ export interface Connection {
   id: string;
   fromId: string;
   toId: string;
-  type?: "tcp" | "http" | "grpc";
+  type?: "tcp" | "http" | "grpc" | "config";
 }
 
 export interface ConnectionLineProps {
@@ -38,13 +38,17 @@ export default function ConnectionLine({
   // 路径数据
   const pathData = `M ${fromX} ${fromY} C ${controlPoint1X} ${controlPoint1Y}, ${controlPoint2X} ${controlPoint2Y}, ${toX} ${toY}`;
 
+  // 根据连接类型选择颜色
+  const connectionColor = connection.type === "http" ? "#10B981" : 
+                          connection.type === "config" ? "#F59E0B" : "#60A5FA";
+
   return (
     <g>
       {/* 连接线路径 */}
       <motion.path
         d={pathData}
         fill="none"
-        stroke="url(#gradient)"
+        stroke={connectionColor}
         strokeWidth="3"
         strokeDasharray="5,5"
         className="opacity-60"
@@ -55,7 +59,7 @@ export default function ConnectionLine({
         <motion.path
           d={pathData}
           fill="none"
-          stroke="#60A5FA"
+          stroke={connectionColor}
           strokeWidth="2"
           initial={{ pathLength: 0, opacity: 0 }}
           animate={{ pathLength: 1, opacity: 1 }}
@@ -77,19 +81,23 @@ export default function ConnectionLine({
         >
           <path
             d="M0,0 L0,6 L9,3 z"
-            fill="#60A5FA"
+            fill={connectionColor}
             className="opacity-80"
           />
         </marker>
       </defs>
       
-      {/* 渐变定义 */}
-      <defs>
-        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#3B82F6" />
-          <stop offset="100%" stopColor="#8B5CF6" />
-        </linearGradient>
-      </defs>
+      {/* 连接类型标签 */}
+      <text
+        x={(fromX + toX) / 2}
+        y={(fromY + toY) / 2 - 10}
+        textAnchor="middle"
+        fill={connectionColor}
+        fontSize="10"
+        className="opacity-80"
+      >
+        {connection.type === "http" ? "HTTP" : connection.type === "config" ? "CONFIG" : "TCP"}
+      </text>
     </g>
   );
 }
